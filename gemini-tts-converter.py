@@ -4,6 +4,7 @@ import wave
 import google.generativeai as genai
 import logging
 import argparse
+import time
 
 # Configure logging
 log_file = 'tts_converter.log'
@@ -91,6 +92,9 @@ def text_to_wav_gemini(api_key, text_file_path):
             wf.writeframes(pcm_audio_data)
 
         logging.info(f"  -> Success! Audio saved to: {output_filename}")
+        logging.info("Pausing for 10 seconds to avoid rate limiting...")
+        time.sleep(10)
+
 
     except Exception as e:
         logging.error(f"  -> An error occurred while processing {os.path.basename(text_file_path)}: {e}")
