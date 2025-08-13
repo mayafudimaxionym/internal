@@ -186,3 +186,5 @@ old/
 process_and_convert.py
 token.pickle
 tts.json
+conversion_state.json
+commit_message.txt
