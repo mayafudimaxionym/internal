@@ -176,3 +176,13 @@ pyrightconfig.json
 # End of https://www.toptal.com/developers/gitignore/api/python
 
 tts_converter.log
+
+# Custom ignores
+.vscode/
+Calculate Activity Rate Change/
+desktop.ini
+find_files_by_type.out
+old/
+process_and_convert.py
+token.pickle
+tts.json
