@@ -33,7 +33,6 @@ def load_state(module_path):
     try:
         with open(state_file, 'r', encoding='utf-8') as f:
             state = json.load(f)
-            # Ensure key_stats exists for backward compatibility with older state files.
             if "key_stats" not in state:
                 state["key_stats"] = {}
             return state
@@ -60,10 +59,7 @@ def get_file_hash(file_path):
 # --- Logger Setup ---
 
 def setup_logger(module_path, command):
-    """
-    Configures a logger to output to both the console and a command-specific file.
-    The log file is overwritten on each run to keep it clean.
-    """
+    """Configures a logger to output to both the console and a command-specific file."""
     log_filename = f"build.{command}.log"
     log_file = os.path.join(module_path, log_filename)
     
@@ -85,14 +81,14 @@ def setup_logger(module_path, command):
 # --- Helper Functions ---
 
 def sanitize_filename(name):
-    """Sanitizes a string to be a valid filename (replaces spaces with underscores)."""
+    """Sanitizes a string to be a valid filename."""
     name = re.sub(r'[:]', '-', name)
     name = re.sub(r'[\\/*?"<>|]', '', name)
     name = re.sub(r'\s+', '_', name)
     return name
 
 def sanitize_directory_name(name):
-    """Sanitizes a string to be a valid directory name (preserves spaces)."""
+    """Sanitizes a string to be a valid directory name."""
     name = re.sub(r'[:]', '-', name)
     name = re.sub(r'[\\/*?"<>|]', '', name)
     return name.strip()
@@ -139,9 +135,7 @@ def load_tts_config(logger):
     except json.JSONDecodeError: logger.error(f"Error decoding JSON from {config_path}"); return None
 
 def load_api_keys(logger):
-    """
-    Loads API keys from keys.json, expecting a list of objects with "key" and "comment".
-    """
+    """Loads API keys from keys.json, expecting a list of objects with "key" and "comment"."""
     keys_path = "keys.json"
     try:
         with open(keys_path, 'r', encoding='utf-8') as f:
@@ -149,11 +143,10 @@ def load_api_keys(logger):
         if not isinstance(key_objects, list) or not key_objects:
             raise ValueError("keys.json should contain a non-empty list of objects.")
         
-        # Extract only the key string from each object.
         extracted_keys = [item['key'] for item in key_objects if 'key' in item and item['key']]
         if not extracted_keys:
             raise ValueError("No valid 'key' fields found in the objects in keys.json.")
-
+        
         logger.info(f"Loaded {len(extracted_keys)} API keys from {keys_path}.")
         return extracted_keys
     except FileNotFoundError:
@@ -189,14 +182,15 @@ def get_google_api_services(logger, credentials_path):
 # --- Main Command Functions ---
 
 def run_structure(args, logger):
-    """Parses the outline and creates the directory structure and text files."""
+    """Parses the outline, creates directories and .txt files. Returns True on success, False on failure."""
     logger.info("--- Starting: Structure Generation ---")
     start_time = time.time()
     
     outline_file = os.path.join(args.module_path, "course_outline.txt")
     course_data = parse_outline(outline_file, logger)
     if not course_data:
-        logger.error("Failed to parse course outline."); return
+        logger.error("Failed to parse course outline.")
+        return False
 
     logger.info(f"Successfully parsed outline for module: '{course_data['module_title']}'")
     
@@ -222,17 +216,18 @@ def run_structure(args, logger):
     end_time = time.time()
     logger.info(f"Summary: Created {video_dirs_created} Video folders, {slide_dirs_created} Slide folders, and {files_created} text files.")
     logger.info(f"--- Finished: Structure Generation in {end_time - start_time:.2f} seconds ---")
+    return True
 
 def run_tts(args, logger):
-    """Finds all .txt files and converts them to .wav audio using multiple API keys."""
+    """Converts .txt files to .wav using multiple API keys. Returns True on success, False on failure."""
     logger.info("--- Starting: Text-to-Speech Conversion ---")
     start_time = time.time()
 
     api_keys = load_api_keys(logger)
-    if not api_keys: return
+    if not api_keys: return False
 
     tts_config = load_tts_config(logger)
-    if not tts_config: return
+    if not tts_config: return False
 
     model_name = tts_config.get("model_name")
     prompt_template = tts_config.get("prompt_template", "{}")
@@ -244,12 +239,11 @@ def run_tts(args, logger):
     for i in range(len(api_keys)):
         if f"key_{i}" not in key_stats: key_stats[f"key_{i}"] = 0
     
-    # Determine the search path. If --video-folder is specified, scan only that folder.
     search_path = args.module_path
     if hasattr(args, 'video_folder') and args.video_folder:
         specific_folder_path = os.path.join(args.module_path, args.video_folder)
         if not os.path.isdir(specific_folder_path):
-            logger.error(f"Specified video folder not found: {specific_folder_path}"); return
+            logger.error(f"Specified video folder not found: {specific_folder_path}"); return False
         search_path = specific_folder_path
         logger.info(f"Processing in targeted mode: only scanning folder '{args.video_folder}'.")
 
@@ -272,7 +266,6 @@ def run_tts(args, logger):
     if files_to_process:
         for file_path, file_hash in tqdm(files_to_process, desc="Converting text to speech"):
             try:
-                # Rotate through the available keys for each request to distribute load.
                 current_key_name = f"key_{key_index}"
                 genai.configure(api_key=api_keys[key_index])
                 tts_model = genai.GenerativeModel(model_name)
@@ -312,23 +305,24 @@ def run_tts(args, logger):
     logger.info(f"Summary: {converted_count} files converted, {failed_count} failed, {skipped_files} skipped.")
     logger.info(f"Key Usage Statistics: {json.dumps(key_stats)}")
     logger.info(f"--- Finished: Text-to-Speech Conversion in {end_time - start_time:.2f} seconds ---")
+    
+    return failed_count == 0
 
 def run_slides(args, logger):
-    """Finds .gslides files and exports their pages as PNG images."""
+    """Exports Google Slides to PNGs. Returns True on success, False on failure."""
     logger.info("--- Starting: Google Slides Export ---")
     start_time = time.time()
 
     drive_service, slides_service = get_google_api_services(logger, args.credentials)
-    if not drive_service or not slides_service: return
+    if not drive_service or not slides_service: return False
 
     state = load_state(args.module_path)
     
-    # Determine search path, supporting targeted folder processing.
     search_path = os.path.abspath(args.module_path)
     if hasattr(args, 'video_folder') and args.video_folder:
         specific_folder_path = os.path.join(search_path, args.video_folder)
         if not os.path.isdir(specific_folder_path):
-            logger.error(f"Specified video folder not found: {specific_folder_path}"); return
+            logger.error(f"Specified video folder not found: {specific_folder_path}"); return False
         search_path = specific_folder_path
         logger.info(f"Processing in targeted mode: only scanning folder '{args.video_folder}'.")
     else:
@@ -407,17 +401,26 @@ def run_slides(args, logger):
     end_time = time.time()
     logger.info(f"Summary: {exported_slides} slides exported, {failed_slides} failed, {skipped_count} presentations skipped.")
     logger.info(f"--- Finished: Google Slides Export in {end_time - start_time:.2f} seconds ---")
+    
+    return failed_slides == 0
 
 def run_build(args, logger):
-    """Runs the full build process: structure, tts, and optionally slides."""
+    """Runs the full build process, stopping if any step fails."""
     logger.info("--- Starting: Full Build Process ---")
     start_time = time.time()
     
-    run_structure(args, logger)
-    run_tts(args, logger)
-    
+    if not run_structure(args, logger):
+        logger.error("Build process stopped due to failure in 'structure' step.")
+        return
+
+    if not run_tts(args, logger):
+        logger.error("Build process stopped due to failure in 'tts' step.")
+        return
+
     if hasattr(args, 'credentials') and args.credentials:
-        run_slides(args, logger)
+        if not run_slides(args, logger):
+            logger.error("Build process stopped due to failure in 'slides' step.")
+            return
     else:
         logger.warning("Skipping slides step in full build: --credentials path not provided.")
         
@@ -437,7 +440,7 @@ def main():
     sp_structure = subparsers.add_parser("structure", help="Generate directory structure from outline.", parents=[parent_parser])
     sp_structure.set_defaults(func=run_structure)
 
-    # --- Add --video-folder argument to commands that support targeted processing ---
+    # A parent parser for commands that support targeting a specific video folder
     video_folder_parser = argparse.ArgumentParser(add_help=False)
     video_folder_parser.add_argument("--video-folder", type=str, help="Process only a specific video folder (e.g., 'Video 7').")
     
