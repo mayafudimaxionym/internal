@@ -29,7 +29,7 @@ source venv/bin/activate
 # 3. Install the required Python libraries
 pip install -r requirements.txt
 pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib google-auth requests
-
+```
 
 ### 1.3. Google Cloud Service Account
 For automated access to Google Drive and Slides, a service account is required. This is more secure and reliable than personal user authentication for scripts.
@@ -49,7 +49,7 @@ This is the JSON file you downloaded from Google Cloud. You can name it whatever
 This file controls the text-to-speech model and voice. It must be in the same directory as `build_module.py`.
 
 **Example `tts_config.json`:**
-json
+```json
 {
   "model_name": "models/gemini-2.5-flash-preview-tts",
   "prompt_template": "Read in a professional and friendly tone: {}",
@@ -81,7 +81,9 @@ This is the master file that defines the entire structure of your module. It mus
 -   `- Bullet Point`: An unordered list item for each piece of narration on a slide.
 
 **Example `course_outline.txt`:**
+<!-- 
 ```markdown 
+-->
 # Module 22: Data-Driven Fraud Detection
 ## Video 1: Introduction
 ### Slide 1
@@ -167,4 +169,5 @@ Module 22/
 |-- build.tts.log
 |-- build.slides.log
 |-- course_outline.txt
+```
 ```
