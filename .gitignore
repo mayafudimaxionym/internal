@@ -191,3 +191,5 @@ commit_message.txt
 Calculate Activity Rate Change
 
 keys.json
+.gemini/
+gha-creds-*.json

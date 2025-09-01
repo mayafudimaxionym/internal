@@ -309,7 +309,7 @@ def run_tts(args, logger):
     return failed_count == 0
 
 def run_slides(args, logger):
-    """Exports Google Slides to PNGs. Returns True on success, False on failure."""
+    """Finds .gslides files by name on Drive and exports their pages as PNG images."""
     logger.info("--- Starting: Google Slides Export ---")
     start_time = time.time()
 
@@ -335,11 +335,20 @@ def run_slides(args, logger):
             if file.endswith(".gslides"):
                 gslides_path = os.path.join(root, file)
                 try:
+                    # Get the base name of the file, stripping the .gslides extension
                     base_name = os.path.splitext(file)[0]
+                    
+                    # Create a query that searches for the exact base name
                     query = f"name = '{base_name}' and mimeType = 'application/vnd.google-apps.presentation' and trashed = false"
+                    
+                    # Execute the search across all drives for maximum compatibility
                     response = drive_service.files().list(
-                        q=query, spaces='drive', fields='files(id, name, modifiedTime)',
-                        corpora='allDrives', includeItemsFromAllDrives=True, supportsAllDrives=True
+                        q=query,
+                        spaces='drive',
+                        fields='files(id, name, modifiedTime)',
+                        corpora='allDrives',
+                        includeItemsFromAllDrives=True,
+                        supportsAllDrives=True
                     ).execute()
                     
                     if not response['files']:
